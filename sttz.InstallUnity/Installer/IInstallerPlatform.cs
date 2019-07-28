@@ -93,7 +93,7 @@ public interface IInstallerPlatform
     /// <summary>
     /// Uninstall a Unity installation.
     /// </summary>
-    Task Uninstall(Installation instalation, CancellationToken cancellation = default);
+    Task Uninstall(Installation installation, CancellationToken cancellation = default);
 
     /// <summary>
     /// Run a Unity installation with the given arguments.
