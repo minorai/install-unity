@@ -108,7 +108,7 @@ namespace sttz.InstallUnity
             var installPath = GetUniqueInstallationPath(installing.version, installationPaths);
 
             // TODO: start info runas
-            var result = await Command.Run(item.filePath, $"/S /D={installPath}");
+            var result = await RunAsAdmin(item.filePath, $"/S /D={installPath}");
             if (result.exitCode != 0)
             {
                 throw new Exception($"Failed to install {item.filePath} output: {result.output} / {result.error}");
@@ -120,11 +120,9 @@ namespace sttz.InstallUnity
             }
         }
 
-
-
         public async Task MoveInstallation(Installation installation, string newPath, CancellationToken cancellation = default)
         {
-            throw new NotImplementedException();
+            // do nothing
         }
 
         public async Task PrepareInstall(UnityInstaller.Queue queue, string installationPaths, CancellationToken cancellation = default)
@@ -152,13 +150,13 @@ namespace sttz.InstallUnity
 
         public async Task<bool> PromptForPasswordIfNecessary(CancellationToken cancellation = default)
         {
+            // Don't care about password. The system will ask for elevated priviliges automatically
             return true;
         }
 
         public async Task Uninstall(Installation installation, CancellationToken cancellation = default)
         {
-            // TODO start info, runas
-            var result = await Command.Run(Path.Combine(installation.path, "Editor", "Uninstall.exe"), "/AllUsers /Q /S");
+            var result = await RunAsAdmin(Path.Combine(installation.path, "Editor", "Uninstall.exe"), "/AllUsers /Q /S");
             if (result.exitCode != 0)
             {
                 throw new Exception($"Could not uninstall Unity. output: {result.output}, error: {result.error}");
@@ -169,26 +167,30 @@ namespace sttz.InstallUnity
 
         ILogger Logger = UnityInstaller.CreateLogger<WIndowsPlatform>();
 
-        bool? isRoot;
-        string pwd;
         VersionMetadata installing;
         string installationPaths;
         bool installedEditor;
 
-        /// <summary>
-        /// Delete a directory
-        /// </summary>
-        async Task Delete(string deletePath, CancellationToken cancellation = default)
+        async Task<(int exitCode, string output, string error)> RunAsAdmin(string filename, string arguments)
         {
-            // First try deleting the installation directly
+            var startInfo = new ProcessStartInfo();
+            startInfo.FileName = filename;
+            startInfo.Arguments = arguments;
+            startInfo.CreateNoWindow = true;
+            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            startInfo.RedirectStandardError = true;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.UseShellExecute = false;
+            startInfo.WorkingDirectory = Environment.CurrentDirectory;
+            startInfo.Verb = "runas";
             try
             {
-                Directory.Delete(deletePath, true);
-                return;
-            }
-            catch (Exception e)
+                var p = Process.Start(startInfo);
+                p.WaitForExit();
+                return (p.ExitCode, p.StandardOutput.ReadToEnd(), p.StandardError.ReadToEnd());
+            } catch (Exception)
             {
-                Logger.LogInformation($"ERROR: Deleting failed... ({e.Message})");
+                Logger.LogError($"Execution of {filename} with {arguments} failed!");
                 throw;
             }
         }
