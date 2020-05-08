@@ -201,16 +201,16 @@ namespace sttz.InstallUnity
             if (!string.IsNullOrEmpty(installationPaths))
             {
                 var comparison = StringComparison.OrdinalIgnoreCase;
-                var paths = installationPaths.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                var paths = installationPaths.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var path in paths)
                 {
-                    expanded = path.Trim()
-                        .Replace("{major}", version.major.ToString(), comparison)
-                        .Replace("{minor}", version.minor.ToString(), comparison)
-                        .Replace("{patch}", version.patch.ToString(), comparison)
-                        .Replace("{type}", ((char)version.type).ToString(), comparison)
-                        .Replace("{build}", version.build.ToString(), comparison)
-                        .Replace("{hash}", version.hash, comparison);
+                    expanded = path.Trim();
+                    expanded = Helpers.Replace(expanded, "{major}", version.major.ToString(), comparison);
+                    expanded = Helpers.Replace(expanded, "{minor}", version.minor.ToString(), comparison);
+                    expanded = Helpers.Replace(expanded, "{patch}", version.patch.ToString(), comparison);
+                    expanded = Helpers.Replace(expanded, "{type}", ((char)version.type).ToString(), comparison);
+                    expanded = Helpers.Replace(expanded, "{build}", version.build.ToString(), comparison);
+                    expanded = Helpers.Replace(expanded, "{hash}", version.hash, comparison);
 
                     if (!Directory.Exists(expanded))
                     {
@@ -224,6 +224,46 @@ namespace sttz.InstallUnity
                 return Helpers.GenerateUniqueFileName(expanded);
             }
             throw new Exception("Giving up");
+        }
+
+        public async Task Run(Installation installation, IEnumerable<string> arguments, bool child)
+        {
+            // child argument is ignored. We are always a child
+            if (!arguments.Contains("-logFile"))
+            {
+                arguments = arguments.Append("-logFile").Append("-");
+            }
+
+            var cmd = new System.Diagnostics.Process();
+            cmd.StartInfo.FileName = installation.executable;
+            cmd.StartInfo.Arguments = string.Join(" ", arguments);
+            cmd.StartInfo.UseShellExecute = false;
+
+            cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.RedirectStandardError = true;
+            cmd.EnableRaisingEvents = true;
+
+            cmd.OutputDataReceived += (s, a) => {
+                if (a.Data == null) return;
+                Logger.LogInformation(a.Data);
+            };
+            cmd.ErrorDataReceived += (s, a) => {
+                if (a.Data == null) return;
+                Logger.LogError(a.Data);
+            };
+
+            cmd.Start();
+            cmd.BeginOutputReadLine();
+            cmd.BeginErrorReadLine();
+
+            while (!cmd.HasExited)
+            {
+                await Task.Delay(100);
+            }
+
+            cmd.WaitForExit(); // Let stdout and stderr flush
+            Logger.LogInformation($"Unity exited with code {cmd.ExitCode}");
+            Environment.Exit(cmd.ExitCode);
         }
     }
 }
