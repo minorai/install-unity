@@ -13,6 +13,9 @@ namespace sttz.InstallUnity
     public class WIndowsPlatform : IInstallerPlatform
     {
 
+        private string INSTALL_PATH => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity", "Hub", "Editor");
+
         string GetUserApplicationSupportDirectory()
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -105,8 +108,8 @@ namespace sttz.InstallUnity
             {
                 throw new InvalidOperationException("Cannot install package without installing editor first.");
             }
-            var installPath = GetUniqueInstallationPath(installing.version, installationPaths);
 
+            var installPath = GetInstallationPath(installing.version, installationPaths);
             // TODO: start info runas
             var result = await RunAsAdmin(item.filePath, $"/S /D={installPath}");
             if (result.exitCode != 0)
@@ -195,7 +198,7 @@ namespace sttz.InstallUnity
             }
         }
 
-        string GetUniqueInstallationPath(UnityVersion version, string installationPaths)
+        string GetInstallationPath(UnityVersion version, string installationPaths)
         {
             string expanded = null;
             if (!string.IsNullOrEmpty(installationPaths))
@@ -212,10 +215,7 @@ namespace sttz.InstallUnity
                     expanded = Helpers.Replace(expanded, "{build}", version.build.ToString(), comparison);
                     expanded = Helpers.Replace(expanded, "{hash}", version.hash, comparison);
 
-                    if (!Directory.Exists(expanded))
-                    {
-                        return expanded;
-                    }
+                    return expanded;
                 }
             }
 
@@ -223,7 +223,10 @@ namespace sttz.InstallUnity
             {
                 return Helpers.GenerateUniqueFileName(expanded);
             }
-            throw new Exception("Giving up");
+            else
+            {
+                return Helpers.GenerateUniqueFileName(INSTALL_PATH);
+            }
         }
 
         public async Task Run(Installation installation, IEnumerable<string> arguments, bool child)
