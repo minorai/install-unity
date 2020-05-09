@@ -658,7 +658,8 @@ public class UnityInstaller
                 continue;
             
             if (!packageFileNames.Contains(fileName)) {
-                throw new Exception("Unexpected file in downloads folder: " + path);
+                Logger.LogWarning("Unexpected file in downloads folder: " + path);
+                //throw new Exception("Unexpected file in downloads folder: " + path);
             }
         }
 
